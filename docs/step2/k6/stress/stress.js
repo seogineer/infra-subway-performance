@@ -22,65 +22,89 @@ const SOURCE = 3;
 const TARGET = 24;
 
 export default function ()  {
-    // lending page
-    let homeUrl = `${BASE_URL}`;
-    let lendingPageResponse = http.get(homeUrl);
-    check(lendingPageResponse, {
-        'lending page running': (response) => response.status === 200
-    });
+    // 시나리오 1. 로그인 ( 토큰 발급 )
+    let loginRes = 로그인_요청();
+    let authHeaders = 로그인_검증_및_토큰_추출(loginRes);
 
-    // login
+    // 시나리오 2. 내 정보 조회
+    let myObjects = 내정보_조회_요청(authHeaders);
+    내정보_조회_검증(myObjects);
+
+    // 시나리오 3. 지하철 역 조회
+    let stations = 지하철_역_조회_요청(authHeaders);
+    지하철_역_조회_검증(stations);
+
+    // 시나리오 4. 경로 조회
+    let shortestPath = 경로_조회_요청(authHeaders, 1, 37);
+    경로_조회_검증(shortestPath);
+
+    // 시나리오 5. 즐겨찾기 조회
+    let favorites = 즐겨찾기_조회_요청(authHeaders);
+    즐겨찾기_조회_검증(favorites);
+
+    sleep(1);
+}
+
+export function 로그인_요청 () {
     var payload = JSON.stringify({
         email: USERNAME,
         password: PASSWORD,
     });
-
     var params = {
         headers: {
             'Content-Type': 'application/json',
         },
     };
+    return http.post(`${BASE_URL}/login/token`, payload, params);
+}
 
-    let loginRes = http.post(`${BASE_URL}/login/token`, payload, params);
-
+export function 로그인_검증_및_토큰_추출 (loginRes) {
     check(loginRes, {
         'logged in successfully': (resp) => resp.json('accessToken') !== '',
     });
 
-    // myinfo
     let authHeaders = {
         headers: {
             Authorization: `Bearer ${loginRes.json('accessToken')}`,
         },
     };
-    let myObjects = http.get(`${BASE_URL}/members/me`, authHeaders).json();
+    return authHeaders;
+}
+
+export function 내정보_조회_요청 (authHeaders) {
+    return http.get(`${BASE_URL}/members/me`, authHeaders).json();
+}
+
+export  function 내정보_조회_검증(myObjects) {
     check(myObjects, { 'retrieved member': (obj) => obj.id != 0 });
+}
 
-    // create line
-    let createLineUrl = `${BASE_URL}/lines`;
-    let lineRandomNumber = Math.random().toString().split('.')[1];
-    let createLinePayload = JSON.stringify({
-        name: `testLine-${lineRandomNumber}`,
-        color: "grey darken-4",
-        upStationId: 1,
-        downStationId: 2,
-        distance: 10,
+export function 지하철_역_조회_요청(authHeaders) {
+    return http.get(`${BASE_URL}/stations`, authHeaders).json();
+}
+
+export function 지하철_역_조회_검증(stations) {
+    check(stations, {
+        'get stations': (resp) => resp !== '',
     });
-    let createLineParams = {
-        headers: {
-            'Authorization': `Bearer ${loginRes.json('accessToken')}`,
-            'Content-Type': 'application/json',
-        },
-    };
-    let createLinesResponse = http.post(createLineUrl, createLinePayload, createLineParams);
-    check(createLinesResponse, {
-        'created Line successfully': (response) => response.status === 201,
+}
+
+export function 경로_조회_요청(authHeaders, source, target) {
+    return http.get(`${BASE_URL}/paths?source=` + source + `&target=`+target, authHeaders).json();
+}
+
+export function 경로_조회_검증(shortestPath) {
+    check(shortestPath, {
+        'get shortestPath': (resp) => resp !== '',
     });
+}
 
-    // find path
-    let response = http.get(`${BASE_URL}/paths?source=${SOURCE}&target=${TARGET}`);
+export function 즐겨찾기_조회_요청(authHeaders) {
+    return http.get(`${BASE_URL}/favorites`, authHeaders).json();
+}
 
-    check(response, {
-        'find path ok': (res) => res.status === 200
+export function 즐겨찾기_조회_검증(favorites) {
+    check(favorites, {
+        'get favorites': (resp) => resp !== '',
     });
 }
